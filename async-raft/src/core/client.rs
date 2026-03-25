@@ -106,16 +106,12 @@ impl<'a, D: AppData, R: AppDataResponse, N: RaftNetwork<D>, S: RaftStorage<D, R>
         // Setup sentinel values to track when we've received majority confirmation of leadership.
         let mut c0_confirmed = 0usize;
         let len_members = self.core.membership.members.len(); // Will never be zero, as we don't allow it when proposing config changes.
-        let c0_needed: usize = if (len_members % 2) == 0 {
-            (len_members / 2) - 1
-        } else {
-            len_members / 2
-        };
+        let c0_needed: usize = (len_members + 1) / 2;
         let mut c1_confirmed = 0usize;
         let mut c1_needed = 0usize;
         if let Some(joint_members) = &self.core.membership.members_after_consensus {
             let len = joint_members.len(); // Will never be zero, as we don't allow it when proposing config changes.
-            c1_needed = if (len % 2) == 0 { (len / 2) - 1 } else { len / 2 };
+            c1_needed = (len + 1) / 2;
         }
 
         // Increment confirmations for self, including post-joint-consensus config if applicable.
