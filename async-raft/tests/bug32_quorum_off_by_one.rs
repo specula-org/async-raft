@@ -18,8 +18,8 @@
 /// 1. Creates a 3-node cluster and elects a leader.
 /// 2. Isolates the leader from all followers.
 /// 3. Calls client_read on the isolated leader.
-/// 4. Asserts that client_read SUCCEEDS — demonstrating the bug.
-///    (A correct implementation would return an error.)
+/// 4. Asserts that client_read FAILS — verifying the fix works.
+///    (Before the fix, client_read would incorrectly succeed.)
 ///
 /// Run with:
 ///   cd case-studies/async-raft/artifact/async-raft
@@ -85,20 +85,18 @@ async fn bug32_isolated_leader_self_confirms_read() -> Result<()> {
     tracing::info!("--- calling client_read on isolated leader");
     let read_result = router.client_read(leader).await;
 
-    // The bug: client_read succeeds on a fully-isolated leader.
-    // In a correct implementation, this would be Err(...).
+    // After the fix: client_read should fail on a fully-isolated leader,
+    // because the corrected quorum formula requires (N+1)/2 = 2 confirmations
+    // for a 3-node cluster, and the leader can only count itself (1).
     assert!(
-        read_result.is_ok(),
-        "BUG DEMONSTRATION FAILED: expected client_read to succeed on isolated leader \
-         (showing the quorum off-by-one bug), but it returned an error: {:?}. \
-         This means the bug may have been fixed.",
-        read_result.err()
+        read_result.is_err(),
+        "Expected client_read to fail on isolated leader after quorum fix, \
+         but it returned Ok. The quorum formula may still be wrong.",
     );
 
     tracing::info!(
-        "BUG CONFIRMED: client_read succeeded on a fully-isolated leader! \
-         The leader self-confirmed the read without any follower acknowledgment. \
-         This violates Raft §8 (leader must exchange heartbeats with a majority)."
+        "FIX VERIFIED: client_read correctly failed on a fully-isolated leader. \
+         The leader could not self-confirm the read without follower acknowledgment."
     );
 
     Ok(())
